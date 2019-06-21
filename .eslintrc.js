@@ -15,12 +15,12 @@ module.exports = {
   //   "error" or 2 - 将规则视为一个错误 (退出码为1)，报错并退出程序
   rules: {
     'no-console': process.env.NODE_ENV === 'production' ? 'error' : 'off',
-    'no-debugger': process.env.NODE_ENV === 'production' ? 'error' : 'off',
-    'space-before-function-paren': ['error', {
-      'anonymous': 'never',
-      'named': 'never',
-      'asyncArrow': 'never'
-    }]
+    'no-debugger': process.env.NODE_ENV === 'production' ? 'error' : 'off'
+    // 'space-before-function-paren': ['error', {
+    //   'anonymous': 'never',
+    //   'named': 'never',
+    //   'asyncArrow': 'never'
+    // }]
     // 'semi': ['error', 'always']
   },
   parserOptions: {
