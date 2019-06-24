@@ -47,9 +47,9 @@
 </template>
 
 <script>
+import axios from 'axios'
 import '@/vendor/gt' // 引入极验 JavaScript SDK 文件，通过 window.initGeetest 使用
 import { saveUser } from '@/utils/auth' // 按需加载，加载模块中非 export default 成员
-import initGeetest from '@/utils/init-geetest'
 const initCodeTimeSeconds = 60
 
 export default {
@@ -94,26 +94,27 @@ export default {
       })
     },
 
-    async submitLogin () {
-      try {
-        const res = await this.$http({
-          method: 'POST',
-          url: '/authorizations',
-          data: this.form
+    submitLogin () {
+      axios({
+        method: 'POST',
+        url: 'http://ttapi.research.itcast.cn/mp/v1_0/authorizations',
+        data: this.form
+      })
+        .then(res => { // >=200 && < 400 的状态码会进入 then 成功
+          const userInfo = res.data.data
+          // window.localStorage.setItem('user_info', JSON.stringify(userInfo))
+          saveUser(userInfo)
+          this.$message({
+            message: '登录成功',
+            type: 'success'
+          })
+          this.$router.push({
+            name: 'home'
+          })
         })
-        const userInfo = res.data.data
-        // window.localStorage.setItem('user_info', JSON.stringify(userInfo))
-        saveUser(userInfo)
-        this.$message({
-          message: '登录成功',
-          type: 'success'
-        })
-        this.$router.push({
-          name: 'home'
-        })
-      } catch (err) {
-        this.$message.error('登录失败，手机号或验证码错误')
-      }
+        .catch((e) => {
+          this.$message.error('登录失败，手机号或验证码错误')
+        }) // >= 400 的状态码都会进入这里
     },
 
     handleSendCode () {
@@ -131,50 +132,49 @@ export default {
     /**
      * 验证通过，初始化显示人机交互验证码
      */
-    async showGeetest () {
+    showGeetest () {
       // 任何函数中的 function 函数内部的 this 指向 window
       const { mobile } = this.form
-
-      const res = await this.$http({
+      axios({
         method: 'GET',
-        url: `/captchas/${mobile}`
-      })
+        url: `http://ttapi.research.itcast.cn/mp/v1_0/captchas/${mobile}`
+      }).then(res => {
+        const { data } = res.data
+        window.initGeetest({
+          // 以下配置参数来自服务端 SDK
+          gt: data.gt,
+          challenge: data.challenge,
+          offline: !data.success,
+          new_captcha: data.new_captcha,
+          product: 'bind' // 隐藏，直接弹出式
+        }, captchaObj => {
+          captchaObj.onReady(() => {
+            // 验证码ready之后才能调用verify方法显示验证码
+            captchaObj.verify() // 弹出验证码内容框
+          }).onSuccess(() => {
+            // your code
+            const {
+              geetest_challenge: challenge,
+              geetest_seccode: seccode,
+              geetest_validate: validate } =
+            captchaObj.getValidate()
 
-      const { data } = res.data
-
-      const captchaObj = await initGeetest({
-        // 以下配置参数来自服务端 SDK
-        gt: data.gt,
-        challenge: data.challenge,
-        offline: !data.success,
-        new_captcha: data.new_captcha,
-        product: 'bind' // 隐藏，直接弹出式
-      })
-
-      captchaObj.onReady(() => {
-        // 验证码ready之后才能调用verify方法显示验证码
-        captchaObj.verify() // 弹出验证码内容框
-      }).onSuccess(async () => {
-        // your code
-        const {
-          geetest_challenge: challenge,
-          geetest_seccode: seccode,
-          geetest_validate: validate } =
-        captchaObj.getValidate()
-
-        // 发送短信
-        await this.$http({
-          method: 'GET',
-          url: `/sms/codes/${mobile}`,
-          params: {
-            challenge,
-            validate,
-            seccode
-          }
+            axios({
+              method: 'GET',
+              url: `http://ttapi.research.itcast.cn/mp/v1_0/sms/codes/${mobile}`,
+              params: {
+                challenge,
+                validate,
+                seccode
+              }
+            }).then(res => {
+              // 发送短信成功，开始倒计时
+              this.codeCountDown()
+            })
+          }).onError(function () {
+            // your code
+          })
         })
-
-        // 开始倒计时
-        this.codeCountDown()
       })
     },
 
