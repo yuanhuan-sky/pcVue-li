@@ -185,8 +185,45 @@ export default {
   },
 
   methods: {
-    handleDelete (item) {
-      console.log(item.id.toString())
+    async handleDelete (item) {
+      try {
+        // 删除确认提示
+        await this.$confirm('此操作将永久删除该文件, 是否继续?', '提示', {
+          confirmButtonText: '确定',
+          cancelButtonText: '取消',
+          type: 'warning'
+        })
+        // 如果手动 catch 了它的异常，还是会被外部的 try-catch 捕获到
+        // 但是代码依然可以继续往后执行
+        // .catch(() => {
+        //   this.$message({
+        //     type: 'info',
+        //     message: '已取消删除'
+        //   })
+        // })
+
+        // 确认：执行删除操作
+        await this.$http({
+          method: 'DELETE',
+          url: `/articles/${item.id}`
+        })
+
+        this.$message({
+          type: 'success',
+          message: '删除成功'
+        })
+
+        // 删除成功重新加载数据列表
+        this.loadArticles()
+      } catch (err) {
+        if (err === 'cancel') {
+          return this.$message({
+            type: 'info',
+            message: '已取消删除'
+          })
+        }
+        this.$message.error('删除失败')
+      }
     },
 
     handleDateChange (value) {
@@ -213,44 +250,48 @@ export default {
     },
 
     async loadArticles () {
-      // 请求开始，加载 loading
-      this.articleLoading = true
-      // 除了登录相关接口之后，其它接口都必须在请求头中通过 Authorization 字段提供用户 token
-      // 当我们登录成功，服务端会生成一个 token 令牌，放到用户信息中
+      try {
+        // 请求开始，加载 loading
+        this.articleLoading = true
+        // 除了登录相关接口之后，其它接口都必须在请求头中通过 Authorization 字段提供用户 token
+        // 当我们登录成功，服务端会生成一个 token 令牌，放到用户信息中
 
-      // 去除无用数据字段
-      const filterData = {}
-      for (let key in this.filterParams) {
-        const item = this.filterParams[key]
-        if (item !== null && item !== undefined && item !== '') {
-          filterData[key] = item
+        // 去除无用数据字段
+        const filterData = {}
+        for (let key in this.filterParams) {
+          const item = this.filterParams[key]
+          if (item !== null && item !== undefined && item !== '') {
+            filterData[key] = item
+          }
+
+          // 数据中的 0 参与布尔值运算是 false。不会进来
+          // if (item) {
+          //   filterData[key] = item
+          // }
         }
 
-        // 数据中的 0 参与布尔值运算是 false。不会进来
-        // if (item) {
-        //   filterData[key] = item
-        // }
+        const data = await this.$http({
+          method: 'GET',
+          url: '/articles',
+          params: {
+            page: this.page, // 页码
+            per_page: this.pageSize, // 每页大小
+            ...filterData
+          }
+          // params: Object.assgin({
+          //   page: this.page, // 页码
+          //   per_page: this.pageSize, // 每页大小
+          // }, filterData)
+        })
+
+        this.articles = data.results
+        this.totalCount = data.total_count
+
+        // 请求结束，停止 loading
+        this.articleLoading = false
+      } catch (err) {
+        this.$message.error('加载文章列表失败', err)
       }
-
-      const data = await this.$http({
-        method: 'GET',
-        url: '/articles',
-        params: {
-          page: this.page, // 页码
-          per_page: this.pageSize, // 每页大小
-          ...filterData
-        }
-        // params: Object.assgin({
-        //   page: this.page, // 页码
-        //   per_page: this.pageSize, // 每页大小
-        // }, filterData)
-      })
-
-      this.articles = data.results
-      this.totalCount = data.total_count
-
-      // 请求结束，停止 loading
-      this.articleLoading = false
     },
 
     handleCurrentChange (page) {
