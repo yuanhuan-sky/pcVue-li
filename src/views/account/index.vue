@@ -90,7 +90,7 @@ export default {
     async handleSave () {
       try {
         const { name, intro, email } = this.user
-        await this.$http({
+        const data = await this.$http({
           method: 'PATCH',
           url: '/user/profile',
           data: {
@@ -103,6 +103,12 @@ export default {
           type: 'success',
           message: '保存修改成功'
         })
+
+        // 提交 mutation，也就是调用 mutation 函数
+        this.$store.commit('changeUser', data)
+
+        // 不要直接这样修改，无法通过调试工具查看最新的容器数据状态，也观测不到修改 state 数据的历史记录
+        // this.$store.state.user.name = '哈哈哈'
       } catch (err) {
         console.log(err)
         this.$message.error('保存修改失败')
@@ -125,6 +131,8 @@ export default {
         })
 
         this.user.photo = data.photo
+
+        this.$store.commit('changeUser', this.user)
 
         this.$message({
           type: 'success',
